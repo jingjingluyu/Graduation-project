@@ -1,0 +1,282 @@
+\chapter{实验及分析}
+\label{cha:shiyanfenxi}
+
+\section{实验设置}
+\label{sec:shiyanzhunbei}
+通过前部分对基础概念的介绍，本章将开展对实验的分析和讨论。将围绕SIFT+BoW+SVM、HOG+BoW+SVM、LBP+BoW+SVM这三种方法展开实验。程序的运行是在Ubuntu16.04环境下，需要的数据库及其版本为OpenCV3.0.1。数据集采用CUB-200-2011鸟类数据集。
+
+对于OpenCV的安装配置就不在这里介绍了。但对于CUB-200-2011数据集这里简单说明一下。由于此数据集比较复杂，其中的局部区域（Part）标注信息以及属性（Attributes）标注信息本实验没有用到，只用到了标注框（Bounding Box，BBox)信息。所以本实验是进行三种方法之间的比较以及有无标注信息的比较。如表~\ref{tab:BBox}为BBox文件的信息。
+\begin{table}[htb]
+ % \centering
+  %\begin{minipage}[t]{0.8\linewidth} % 如果想在表格中使用脚注，minipage是个不错的办法
+  \caption{BBox信息}
+  \label{tab:BBox}
+   \begin{tabularx}{\linewidth}{c|rrrr}
+     \toprule[1.5pt]
+      图片编号 & 起始点横坐标 &  起始点纵坐标 &  标注框宽度 &  标注框长度 \\
+     \hline
+      1 & 60.0 & 27.0 & 325.0 & 304.0\\
+      2 & 139.0 & 30.0 & 153.0 & 264.0\\
+      3 & 14.0 & 112.0 & 388.0 & 186.0\\
+      \bottomrule[1.5pt]
+    \end{tabularx}
+  %\end{minipage}
+\end{table}
+%其中，第一列代表图片编号，第二、三列代表标注框起始点横、纵坐标，第四、五列代表标注框的宽和高。 
+
+由于数据集没有直接给出加了标注框的图片，所以需要根据自己的实验需要按照文件中已给的位置和框大小的信息给图片进行加框标注。准备两种形式的图片，一种是不佳任何标注信息，另一种加标注框信息。如下图~\ref{fig:shiliyuanshibiaozhu}所示。
+\begin{figure}[H]
+  \centering%
+  \subcaptionbox{原始图像\label{fig:yuanshitu}}[3cm] %标题的长度，超过则会换行，如下一个小图。
+    {\includegraphics[height=4cm]{原始图}}%
+  \qquad \qquad \qquad \qquad
+  \subcaptionbox{带有标注框的图像\label{fig:biaozhukuang}}
+      {\includegraphics[height=4cm]{有标注框}}
+  \caption{两种图像示例}
+  \label{fig:shiliyuanshibiaozhu}
+\end{figure}
+
+\section{三种方法的实验分析}
+\label{sec:shiyanfenxi}
+
+\subsection{SIFT+BoW+SVM}
+\label{subsec:siftbowsvm}
+先进行SIFT特征提取，在进行编译时需要注意由于使用了OpenCV函数库，在Ubuntu系统终端直接进行编译，而不用Cmake需要命令行需要加上 “pkg-config –cflags –libs opencv”否则无法找到所要调用的函数库。
+
+特征点的提取和计算步骤是先加载输入图像，之后调整输入图像的尺寸，如果输入图像是彩色图片，需要将其转化成灰度图，然后调用SIFT库函数sift\_feature来得到目标图片的特征点向量集合和特征点数目。提取到的特征点显示在图像中如下图~\ref{fig:siftfeature}所示。
+\begin{figure}[H] % use float package if you want it here
+  \centering
+  \includegraphics[height=5cm]{鸟特征点}
+  \caption{SIFT特征提取结果}
+  \label{fig:siftfeature}
+\end{figure}
+从图中信息可以看出，经过SIFT方法后，图像上所圈出的点就是被提取出的具有旋转不变性的特征点。并且从终端可以输出所提取特征的信息，如表~\ref{tab:zhongduansift}所示，表中只列出4个方向的描述符。
+\begin{table}[htbp]
+  \centering
+  \caption{终端输出的部分结果}
+  \label{tab:zhongduansift}
+  %\begin{minipage}[t]{0.8\textwidth} 
+    \begin{tabularx}{\linewidth}{l|X|X|X|X}
+      \toprule[1.5pt]%\hline
+ \multicolumn{1}{c|}{关键点数目} & \multicolumn{4}{c}{每个方向的描述符}\\\cline{2-5}
+      & 0 & 1 & 2 & 3 \\ \hline
+      139  & 0.184178 & 0.152615 & 0.000000 & 0.000000 \\ 
+     \bottomrule[1.5pt]
+    \end{tabularx}\\[2pt]
+  %\end{minipage}
+\end{table}
+  
+将提取到的特征存放到descriptor参数中便于后面的使用。提取到特征后进行聚类等过程，经过Bag-of-Words模型后得到的结果存在Train-Features-SIFT.txt 中。如表~\ref{tab:BBox}所示，可以看到所得到的处理都特征点归一化的数据，从结果中还可以看出每张图片提取的特征点数是不同的。
+
+\begin{table}[htb]
+ \centering
+  \begin{minipage}[t]{0.3\linewidth} % 如果想在表格中使用脚注，minipage是个不错的办法
+  \caption{处理后部分结果}
+  \label{tab:BBox}
+   \begin{tabularx}{\linewidth}{c|c}
+     \toprule[1.5pt]
+      图片编号 &   特征点数目 \\
+     \hline
+      1 & 36\\\hline
+      2 & 43\\\hline
+      3 & 35\\
+      \bottomrule[1.5pt]
+    \end{tabularx}
+  \end{minipage}
+\end{table}
+
+接下来就是进行分类器的训练与识别了，用SVM分类器进行分类。一般利用BoW的时候，都选择支持向量机，有实验证明BoW结合SVM效果要好于其他的分类器，并且我先选择了用RBF核，得到的结果我是用两种形式体现。一种是直接将每幅图片测试后得到的所属类别用标号与图片一一对应起来如表~\ref{tab:fenlei}所示。另一种是用混淆矩阵体现。
+
+\begin{table}[htb]
+ \centering
+  \begin{minipage}[t]{0.85\linewidth} % 如果想在表格中使用脚注，minipage是个不错的办法
+  \caption{测试的部分结果}
+  \label{tab:fenlei}
+   \begin{tabularx}{\linewidth}{c|r|c|r|c|r}
+     \toprule[1.5pt]
+      图片编号 &  所属类别  &  图片编号 & 所属类别 & 图片编号 &  所属类别 \\
+     \hline
+      1 & 36 & 5 & 133 & 9  & 104 \\\hline
+      2 & 43 & 6 & 48  & 10 & 7   \\\hline
+      3 & 35 & 7 & 7   & 11 & 192 \\\hline
+      4 & 34 & 8 & 104 & 12 & 7   \\
+      \bottomrule[1.5pt]
+    \end{tabularx}
+  \end{minipage}
+\end{table}
+
+这里介绍一下混淆矩阵的概念。在机器学习领域，混淆矩阵（Confusion Matrix）是一种特定的矩阵，它可以使算法的性能以矩阵的形式直观的表现出来，通常进行监督学习时使用。矩阵的每一列代表预测出的值，在本实验中每一列中的数字代表测试出每类分别有多少张图片，每一行代表的是实际的类别，本实验中每行所有数字之和为每类所含图片的总数，所以矩阵的对角线上的数字就是真正预测准确的值。故在计算准确率时用对角线上的值与总和相比再取平均值。我将得到的矩阵结果用Matlab进行准确率分析，得到的准确率为0.4\%。由此可知将原始未经过处理的图像直接进行特征提取，得到的准确度结果并不理想非常低。
+
+之后使用 BBox标注框信息，虽然不能只将鸟框选出来，但是也去掉了一些无用的背景信息。还是运用Matlab将原始图像被框中部分截取出来。结果如图~\ref{fig:jiequyuanshi}所示。
+\begin{figure}[H]
+  \centering%
+  \subcaptionbox{原始图像\label{fig:yuanshitu2}}[3cm] %标题的长度，超过则会换行，如下一个小图。
+    {\includegraphics[height=4cm]{原始图像2}}%
+  \qquad \qquad \qquad \qquad %\hspace{4em}%
+  \subcaptionbox{截取后的图像\label{fig:jiequtuxiang}}
+      {\includegraphics[height=4cm]{截取后图像}}
+  \caption{两种图像示例}
+  \label{fig:jiequyuanshi}
+\end{figure}
+将截取后的图像输入处理后，得到结果再求准确率，如图所示为0.56\%。结果并没有太大的变化。对于用SIFT方法来提取图像特征时，输入原始图像与只加入标注框信息的图像得到的结果相差不大。这说明如果想要用SIFT进行特征提取来达到一个更好的效果，需要在图片中加入大量的人工标注信息，因此本实验仅仅加入标注框信息得到的结果非常不理想。当输入原始图像时混淆矩阵中也可以直接观察到测试的结果，图下图~\ref{fig:siftrbf}所示。
+\begin{figure}[H] % use float package if you want it here
+  \centering
+  \includegraphics[height=6cm]{1}
+  \caption{输入原始图像混淆矩阵部分示例}
+  \label{fig:siftrbf}
+\end{figure}
+由混淆矩阵可以观察出，测试的结果中所有的类别中大部分图像被预测为第四种鸟类。这种情况说明类对于SIFT而言当结合RBF核进行分类时，对于第四种鸟类的分类效果更好。但同时也说明，分类结果误差比较大。
+
+之后使用SVM的Linear核再进行一次分类，当输入未经过处理的图像时得到的准确率为0.35\%，当输入截取后的图片得到的准确率为0.48\%。两种方式得到的准确率如下表~\ref{tab:siftbowsvm}所示。
+
+\begin{table}[htb]
+ \centering
+  \begin{minipage}[t]{0.6\linewidth} % 如果想在表格中使用脚注，minipage是个不错的办法
+  \caption{SIFT+BoW+SVM测试结果}
+  \label{tab:siftbowsvm}
+   \begin{tabularx}{\linewidth}{c|c|c}
+     \toprule[1.5pt]
+      核函数 &  输入原始图像  &  输入加标注框的图像\\
+     \hline
+      RBF & 0.4\% & 0.56\%  \\\hline
+      Linear & 0.35\% & 0.48\%  \\
+      \bottomrule[1.5pt]
+    \end{tabularx}
+  \end{minipage}
+\end{table}
+
+从结果可以看出对于SIFT而言与RBF核函数结合进行分类得到的结果要比与Linear结合使用少好一些，可能是由于所得到的特征数目少于数据集的图像数量。下图~\ref{fig:siftlinear}为输入原始图像用Linear后得到的混淆矩阵部分示意图。
+
+\begin{figure}[H] % use float package if you want it here
+  \centering
+  \includegraphics[height=6cm]{2}
+  \caption{输入原始图像混淆矩阵部分示例}
+  \label{fig:siftlinear}
+\end{figure}
+
+从混淆矩阵中还可以看出，分类结果中将大部分的图像都映射为第6类鸟，其中第14和20类中有10张图像的测试结果为第6类鸟，误差非常大，测试说明Linear更倾向对于第6类鸟的分类。但是通过观察对角线可以发现，对角线上的值几乎为0，这也可以说明当直接输入原始图片进行分类时用SIFT+BoW+SVM这种传统方法的分类效果不理想。
+
+\subsection{HOG+BoW+SVM}
+\label{subsec:hogbowsvm}
+    用HOG特征进行特征提取，其实HOG是一个基于梯度的直方图提取算法，大部分用于人体检测十分有效。这里我们用其来提取鸟的特征也是可以的。因为这些参数是用很多图片训练而来的。先使用描述子setSVMDetector给用来对HOG特征进行分类的SVM分类器的系数赋值，此处的参数为HOGDescriptor::getDefaultPeopleDetector()表示采用系统默认的值，因为这些值是来自用大量图像训练得到的。并且输入的图像尺度不同，因此要使用多尺度检测，这里是用HOG类的方法detectMultiScale。最后对检测出目标矩形框，得到的结果如图~\ref{fig:hogtezhengyangli}所示。从图中可以观察到经过HOG特征提取，可以将图像的关键部分描述出来。
+\begin{figure}[H]
+\centering%
+  \subcaptionbox{原始图像\label{fig:yuanshitu}}[3cm] %标题的长度，超过则会换行，如下一个小图。
+    {\includegraphics[height=4cm]{原始图}}%
+  \qquad \qquad \qquad \qquad
+  \subcaptionbox{经过LBP处理后的结果\label{fig:lbpjiequ}}
+      {\includegraphics[height=4cm]{HOG特征}}
+  \caption{HOG提取特征样例}
+  \label{fig:hogtezhengyangli}
+\end{figure}
+
+经过词袋模型后，进入SVM分类器进行分类。未经处理的原始图片用RBF核得到的准确率可以达到3.48\%。当输入被标注框框出的图像后，得到的准确率确实有了提高，可以达到9.13\%。对于HOG算子来说当输入带有标注信息的图像，使关键的局部区域定位更加准确，提取到的特征点也就更有效。再观察一下当输入原始图像后混淆矩阵的输出情况，如图~\ref{fig:hogrbf}所示。
+\begin{figure}[H] % use float package if you want it here
+  \centering
+  \includegraphics[height=6cm]{33(1)}
+  \caption{输入原始图像混淆矩阵部分示例}
+  \label{fig:hogrbf}
+\end{figure}
+从图中可以发现用这种方式所得到的分类结果分布比较均匀，没有出现像图~\ref{fig:siftlinear}中那样有大部分的值集中在某一个类别上，并且对角线上的值明显增多，也直观的表现出用HOG算子来提取特征效果好于SIFT。并且计算出当输入带有标注框的图像后其准确率有了明显的提高，从混淆矩阵中可以直观的看出区别，如图~\ref{fig:hogjiequrbf}所示。
+\begin{figure}[H] % use float package if you want it here
+  \centering
+  \includegraphics[height=6cm]{4}
+  \caption{输入带标注图像混淆矩阵部分示例}
+  \label{fig:hogjiequrbf}
+\end{figure}
+与图~\ref{fig:hogrbf}相比分类准确的图像数量更多了，大部分的值分布在对角线附近，准确率明显提高。对于HOG算子来说当输入图像带有标注信息时，它所提取的特征更加准确，也更加可以体现HOG算子的优势。
+
+用Linear核后，当输入未经过处理的图像和截取后的图像得到准确率分别为2.05\%和6.24\%。两种方法的结果如下表~\ref{tab:hogbowsvm}所示。
+
+\begin{table}[htb]
+ \centering
+  \begin{minipage}[t]{0.6\linewidth} % 如果想在表格中使用脚注，minipage是个不错的办法
+  \caption{HOG+BoW+SVM测试结果}
+  \label{tab:hogbowsvm}
+   \begin{tabularx}{\linewidth}{c|c|c}
+     \toprule[1.5pt]
+      核函数 &  输入原始图像  &  输入加标注框的图像\\
+     \hline
+      RBF & 3.48\% & 9.13\%  \\\hline
+      Linear & 2.05\% & 6.24\%  \\
+      \bottomrule[1.5pt]
+    \end{tabularx}
+  \end{minipage}
+\end{table}
+
+由表中数据对比可以发现，对于HOG算子来说与RBF核结合使用效果更好。当输入原始图像时用这两种核函数得到的结果并没有太大差别，从混淆矩阵中也看不出很大变化，但是当输入带有标注信息的图像时可以发现，用RBF核的准确度更高。与SIFT相比无哪种情况用HOG提取特征得到的准确率更高，并且实验过程中发现运行速度也更快一些。另一个优点是HOG算子对细微动作的变化有很好的包容性，这样保证了由姿态不同所造成的误差。
+
+\subsection{LBP+BoW+SVM}
+\label{subsec:lbpbowsvm}
+用圆形的LBP算子进行特征提取，此方式是用圆形邻域替代了正方形邻域，改善后的 LBP 算子可以使半径为 R 的圆形邻域内有无数多个像素点。进而得到了半径为R的圆形区域包含有P个采样点的LBP算子。从而得到了半径为R的圆形区域内含有P个采样点的LBP算子。以一张图片为例经过LBP提取得到物体局部纹理特征，如图~\ref{fig:lbptiqu}所示。
+\begin{figure}[H]
+  \centering%
+  \subcaptionbox{原始图像\label{fig:yuanshitu}}[3cm] %标题的长度，超过则会换行，如下一个小图。
+    {\includegraphics[height=4cm]{原始图}}%
+  \qquad \qquad \qquad \qquad \qquad
+  \subcaptionbox{经过LBP处理后的结果\label{fig:lbpjiequ}}
+      {\includegraphics[height=4cm]{lbptezheng}}
+  \caption{LBP特征提取样例}
+  \label{fig:lbptiqu}
+\end{figure}
+由得到的纹理图像信息可以看出，所提取到的特征与其所处的位置有关系。经过BoW模型，得到提取的特征，之后输入到SVM分类器进行分类。得到用RBF核处理后的结果，准确率为3.6\%，用Linear核分别进行有无标注信息的实验，结果准确率都为0.5\%。两只种方式得到的结果如下表~\ref{tab:lbpbowsvm}所示。
+
+\begin{table}[htb]
+ \centering
+  \begin{minipage}[t]{0.6\linewidth} % 如果想在表格中使用脚注，minipage是个不错的办法
+  \caption{LBP+BoW+SVM测试结果}
+  \label{tab:lbpbowsvm}
+   \begin{tabularx}{\linewidth}{c|c|c}
+     \toprule[1.5pt]
+      核函数 &  输入原始图像  &  输入加标注框的图像\\
+     \hline
+      RBF & 3.6\% & 6.9\%  \\\hline
+      Linear & 0.5\% & 0.5\%  \\
+      \bottomrule[1.5pt]
+    \end{tabularx}
+  \end{minipage}
+\end{table}
+
+由表中数据可以发现，当输入原始图像并用RBF核时得到的准确率与用HOG进行特征提取得到的结果接近。这意味着对于原始图像的处理在使用RBF核函数进行分类的情况下，用HOG或者LBP算子进行特征提取，二者的效果区别不大，但是当输入带有标注信息的图下时，HOG的优势就表现出来了。由于LBP描述的纹理信息有局限性，并且对图像的边缘和方向信息无法无法准确的描述出来，所以目前大多是采用LBP与HOG算子相结合的方式。当用Linear核进行分类时，得到的准确率突然降低，说明对于LPB算子不适合用其进行分类。通过观察混淆矩阵可以发现，没有出现预测值集中到某一类别的情况。
+
+在通过混淆矩阵进行观察，当用RBF核进行分类输入原始不经过处理的图像，得到的混淆矩阵如图~\ref{fig:lbprbf}所示。
+
+\begin{figure}[H] % use float package if you want it here
+  \centering
+  \includegraphics[height=6cm]{5}
+  \caption{输入原始图像混淆矩阵部分示例}
+  \label{fig:lbprbf}
+\end{figure}
+
+从图中可以观察到，用这种方法得到的结果与用HOG算子的结果近似，测试时得到的值比较分散，其中第12类预测的准确率最大，但还有很多类别没有预测对，对角线上的值为0。总的来说当输入原始图像进行分类时，对于传统方法得到的效果是非常糟糕的。当使用Linear核进行分类时，准确率急剧下降，与用SIFT算子得到的结果相近，同样从混淆矩阵可以看出结果聚集在某一类别上，误差较大。
+
+\section{实验总结}
+\label{sec:shiyanzongjie}
+当输入未经处理的图片时，只用RBF核三种方法中准确率最高的方法是LBP+BoW+SVM其次是HOG+BoW+SVM，SIFT+ BoW+SVM为最低。通过分析和查阅资料，运用LBP方法提取特征已经可以达到十分高效的结果，经过改善与发展已经应用于多个领域之中，尤其在是人脸识别、表情识别、行人检测领域已经获得了很大成功。LBP特征可以一定程度上解决了复杂场景下特征描述问题。在一定程度上对未经过处理的图像提取特征后结合SVM进行分类，LBP占有一定的优势。并且SIFT算法是最早提出的，其他两中都是后来提出的，肯定在提取特征的方法上都做了调整和优化。
+
+当输入带有标注框的图像，并且用RBF核时三种方法中准确率最高的是HOG+BoW+SVM，并且也是准确率提升幅度最大的。用HOG算子来提取特征在行人检测中得到的结果突出，结合SVM分类技术已经复变应用在图像识别与分析领域。由于给出了标注框并且HOG所分单元很小，这样提取的特征更加准确。
+
+当用Linear核进行分类时，不同算法所体现出的效果不同。当输入的是原始图像时，仍然是用SIFT进行特征提取所得到的准确率最低，但此时用HOG算子得到的准确率最高。用LBP算子得到的准确率与用SIFT得到的相近，并且当输入截图后的图像时准确率并没有提高，说明对于LBP算子来说进行分类时更加适合用RBF核。总的来说在此问题上使用RBF核的效果要高于使用Linear核的效果。三种方法所有结果如下表~\ref{tab:jieguozong}所示。
+
+\begin{table}[htbp]
+  \centering
+  \caption{三种方法的实验结果}
+  \label{tab:jieguozong}
+  %\begin{minipage}[t]{0.8\textwidth} 
+    \begin{tabularx}{\linewidth}{l|X|X|X|X}
+      \toprule[1.5pt]%\hline
+ \multicolumn{1}{c|}{特征提取方式} & \multicolumn{2}{c|}{原始图像} & \multicolumn{2}{c}{带标注框信息图像}\\\cline{2-5}
+      & Linear核 & RBF核 & Linear核 & RBF核 \\ \hline
+      SIFT  & 0.35\% & 0.4\% & 0.48\% & 0.56\% \\ \hline
+      HOG   & 2.05\% & 3.48\% & 6.24\% & 9.13\% \\ \hline
+      LBP   & 0.5\% & 3.6\% & 0.5\% & 6.9\% \\
+     \bottomrule[1.5pt]
+    \end{tabularx}\\[2pt]
+  %\end{minipage}
+\end{table}
+
+
+
+
+
+
