@@ -1,0 +1,195 @@
+\chapter{细粒度图像分类方法}
+\label{cha:fangfa}
+
+\section{图像特征提取}
+\label{sec:tezhengtiqu}
+细粒度图像分类中决定图像分类准确性的一个关键因素是要找到一个区分度较大的特征，这个特征一直是研究者所追寻的目标。当然，随着深度学习尤其是深度卷积神经网络的不断发展，从深度卷积神经网络中得到的特征比传统方法效果要好很多。但本文重点在于介绍传统方法，从基础出发对细粒度图像分类进行研究。接下来将介绍三种常用的特征提取方法。
+
+\subsection{尺度不变特征变换}
+\label{sec:sift}
+在现实世界中进行物体识别会受到很多其他外在因素的干扰，这就要求局部图像特征要避免噪声影响。这些特征至少要对光照、三维投影变换以及普通物体变化具有一定的不变性。故尺度不变特征变换（Scale-Invariant Feature Transform, SIFT）~\cite{lowe1999object}就可以得到这样的特征。它是由British Columbia大学大卫.劳伊教授总结了现有的基于不变量技术的特征检测方法，于1999年提出的，这种算法在2004年被进一步完善。
+
+ SIFT提取特征的方法是在空间尺度中寻找局部极值点，也被称为关键点，它的特征是尺度方向和大小。把图像转换成一个包含很多局部特征向量的集合，这些特征向量具有位置、尺度、旋转不变性，并且对光照变化、三维投影或仿射也具有一定的不变性。
+
+整个算法分五个部分，首先构建尺度空间。高斯卷积核~\cite{lindeberg1994scale}是可以实现尺度变换的唯一线性核，定义一副二维图像的尺度空间的方法见下面的公式：
+\begin{equation}
+ L(x,y,\sigma) = G(x,y,\sigma) \ast I(x,y)
+\end{equation}
+\begin{equation}
+G(x_i,y_i,\sigma) = \frac{1}{2 \pi x^{2}}exp(-\frac{(x-x_i)^{2}+(y-y_i)^{2}}{2\sigma})
+\end{equation}
+
+其中$L$(x,y,$\sigma$)为图像的尺度空间，$I$(x,y)为原始图像，$G$(x,y,$\sigma$)可变尺度的2维高斯函数。
+
+利用高斯差分尺度空间，进行图像金字塔建立，构建过程分为两步，一个是对图像做高斯平滑，第二步是对图像进行降采样。得到其在不同尺度的图像,如图~\ref{fig:jinzita}所示。
+\begin{figure}[H] % use float package if you want it here
+  \centering
+  \includegraphics[height=5cm]{jinzita}
+  \caption{高斯金字塔}
+  \label{fig:jinzita}
+\end{figure}
+之后，检测尺度空间极值点。尺度规范化的LoG具有尺度不变性，是由高斯函数梯度算子GoG构建的尺度规范化的GoG算子。LoG 算子与高斯核函数的差有一定的直接联系，故提出了一种新的算子 DoG(Difference of Gaussians), 叫做高斯差分算子。关键点就是由DoG空间的局部极值点组成，它可以有效的在尺度空间检测到稳定的关键点。探寻尺度空间的极值点，每个采样点要和它相邻点进行对比,找到最小和最大的点。如图~\ref{fig:jizhidian}所示，位于中间的点与它所处同一平面的8个点进行比较，并且也与上下两个平面的26个点进行比较。去除不好的特征点，要排除边缘响应。
+\begin{figure}[H] % use float package if you want it here
+  \centering
+  \includegraphics[height=6cm]{极致}
+  \caption{寻找极值点}
+  \label{fig:jizhidian}
+\end{figure}
+第四步，利用关键点相邻像素的梯度方向分布特征为每个关键点确定方向参数，使算子具有旋转不变性。像素点的梯度表示：
+\begin{equation}
+ gradI(x,y) = (\frac{\partial I}{\partial x},\frac{\partial I}{\partial y})
+\end{equation}
+梯度幅值：
+\begin{equation}
+ m(x,y) = \sqrt{(L(x+1,y)-L(x-1,y))^{2}+(L(x,y+1)-L(x,y-1))^{2}}
+\end{equation}
+梯度方向：
+\begin{equation}
+ \theta (x,y)  =  \tan^{-1}\Big[\frac{L(x,y+1)-L(x,y-1)}{L(x+1,y)-L(x-1,y)}\Big]
+\end{equation}
+
+最后，关键点描述子的生成。将坐标轴旋转为关键点的方向，以保证旋转不变性，对特征点产生 128 个数据，也就是 128 维的 SIFT 特征向量，再进行归一化。 
+
+\subsection{方向梯度直方图}
+\label{sec:hog}
+方向梯度直方图（Histograms of Oriented Gradients，HOG）特征~\cite{dalal2005histograms}是应用在计算机视觉和图像处理领域，用于目标检测的特征描述器。HOG结合支持向量机（Support Vector Machine，SVM ）~\cite{cortes1995support}进行行人检测的方法是法国研究人员Dalal在2005的CVPR上提出的，现在虽然有很多其他的算法被提出，但基本都是从HOG结合SVM的思想出发。
+
+ 这种方法同上面介绍的SIFT特征有很多相似之处，此方法使用了图像的本身的梯度方向特征。不同点是这种方法是先将图像分成小的连通区域，被称为细胞单元，并采集计算各像素点的梯度或边缘的方向直方图，而且为了提高性能，还采用了重叠的局部对比度归一化~\cite{krizhevsky2012imagenet}技术。如图~\ref{fig:hogliucheng}所示为HOG特征的流程图。
+\begin{figure}[H] % use float package if you want it here
+  \centering
+  \includegraphics[height=4cm]{hog流程}
+  \caption{HOG流程框架}
+  \label{fig:hogliucheng}
+\end{figure}
+
+首先将图像转化为灰度图，之后将图像进行归一化，图像归一化主要目的是提高检测器对光照的鲁棒性，由于现实情况的目标可能出现在各种不同的场合，所以为了得到好的效果检测器必须对光照不太敏感才可以。Gamma压缩公式：
+\begin{equation}
+ I(x,y) = I(x,y)^{\gamma}
+\end{equation}
+
+其中$\gamma$可取1/2。
+
+之后，计算图像梯度是利用一阶微分进行处理。之后采用很多一阶微分模板来求梯度的近似值，但在结果表明模板 [-1,0,1] 效果是最出众的。然后把整个图像分割为一个个的Cell单元，再对每个单元格构建梯度方向直方图。把相邻近的Cell单元组合成一个块，每一个单元格的特征会以不同的结果多次出现在最后的特征向量中，将归一化之后的块描述符就称之为HOG描述。
+%\begin{figure}[H] % use float package if you want it here
+ % \centering
+  %\includegraphics[height=7cm]{block}
+  %\caption{cell与block}
+  %\label{fig:block}
+%\end{figure}
+最后将检测窗口中所有重叠的块进行HOG特征的收集，并将它们结合成最终的特征向量供分类使用。
+
+HOG的特点是所分的单元较小，在局部细胞单元上进行操作，所以可以保留一定的空间分辨率。并且这种归一化的操作可以使该特征对比度变化不敏感。
+\subsection{局部二值模式}
+\label{sec:lbp}
+局部二值模式（Local Binary Pattern，LBP)~\cite{ojala1994performance}也是一种可以用来图像提取特征的方法，它主要是用来描述图像局的纹理特征。同样这种方法也具有旋转不变性和灰度不变性等明显的优点。最早提出此方法的是T. Ojala, M.Pietikäinen和 D. Harwood。
+
+最早的LBP算子被定义在一个3乘3的区域中~\cite{wang1990texture}，将区域中心点像素的灰度值设置为阈值，与周围其他的8个点的灰度值比较，如果周围的值大于中心点的值，将次像素点的位置标记成1，否则记为0。如此便得到了一个8位二进制数，这也就是中心点像素的LBP值。这个LBP值就可以用来反映此窗口区域的纹理信息。如下图~\ref{fig:lbpchuangkou}所示
+\begin{figure}[H] % use float package if you want it here
+  \centering
+  \includegraphics[height=4cm]{33}
+  \caption{LBP被定义在3$\times$3窗口}
+  \label{fig:lbpchuangkou}
+\end{figure}
+故LBP操作的定义形式为:
+\begin{equation}
+LBP(x_c,y_c) = \sum_{p=0}^{p-1}2^{p}s(i_p-i_c)
+\end{equation}
+
+其中，($x_{c}$,$y_{c}$)是中心像素，$i_{c}$代表亮度，$i_{p}$代表相邻像素的亮度。$s$是一个符号函数：
+\begin{equation}
+s(x) = \left\{ \begin{array}{ll}
+    1 & \textrm{if $x \geq 0$}\\
+    0 & \textrm{else}
+   \end{array} \right.
+\end{equation}  
+        
+按照这样的方法就可以获得很好的图像细节。但是随着技术的不断发展，仅仅以3$\times$3为窗口无法满足不同尺寸和频率纹理的需要，所以为了适应不同的情况达到更好的效果，研究人员不断对其提出了各种改进和优化。其中有圆形LBP算子、LBP旋转不变模式和LBP等价模式等，具体就不一一介绍了。
+
+得到了每一点的LBP值后，原始LBP特征依然是“一幅图片”。然后计算每个小区域的直方图，就是每个数字出现的频率,然后对该直方图进行归一化处理。最后将获得的每个小区域的统计直方图进行连接成为一个特征向量，就得到了整幅图的LBP纹理特征向量。之后可以利用支持向量机（Support Vector Machine，SVM）或者其他机器学习算法进行分类。
+\section{词袋模型}
+\label{sec:other}
+最初词袋（Bag-of-Words，BoW）模型~\cite{harris1954distributional}是用来进行语义文本检索。此算法忽略掉文本的语法和语序等要素，只是将文本视为一个个单独的词汇集合。近年来，BoW模型被广泛运用到计算机视觉领域。所以，充分应用文本检索算法的优势，将图像视为一系列视觉单词的集合，这些单词被定义为一个图像块的特征向量，而BoW模型也就相当于图片中所有图像块的特征向量获得的直方图。所以用这种视觉单词构成的直方图来描述图像的特征，使图像分类更加有效。
+BoW算法步骤是，首先提取一幅图片中的特征区域或关键点，提取方法可以用到上面介绍的几种特征提取方法。然后一幅图像由若干个视觉单词组成，构建视觉词典。如图~\ref{fig:bowtiqu}所示。
+\begin{figure}[H] % use float package if you want it here
+\centering
+  \includegraphics[height=3cm]{cici}
+  \caption{从图像中提取视觉词汇}
+  \label{fig:bowtiqu}
+\end{figure}
+将提取到的特征进行聚类，通常选用K-Means方法实现聚类~\cite{wagstaff2001constrained}。视觉词汇的聚类过程是指把很多描述符转化为一个个视觉词汇的过程。这种算法以K为参数，把N个对象分为K个簇，使簇内相似度比较高，而簇间相似度较低对于一幅图像中所提取到的特征点，想要统计各个特征点属于哪些视觉单词，需要对图像中的特征点根据视觉词汇表的信息，再依据描述符与视觉词汇的距离远近进行归类，最终得出描述这幅图像的视觉单词并确定出物体的类别。%如图~\ref{fig:kmeans}所示。
+%\begin{figure}[H] % use float package if you want it here
+ % \centering
+  %\includegraphics[height=6cm]{kmeans}
+ % \caption{K-Means算法构造单词表}
+  %\label{fig:kmeans}
+%\end{figure}
+\section{支持向量机}
+\label{sec:svm}
+在机器学习中，支持向量机( Support Vector Machine , SVM )~\cite{cortes1995support}是有关联学习算法的监督学习模型, 并利用关联学习算法分析数据进行分类和回归分析。 给定一组训练的样本，每个都标注属于一个或两个类别。SVM训练算法建立一了个模型，这个模型为一个类别或其他类别分配新的样本，故SVM成为非概率的二元线性分类器。除了执行线性分类外，支持向量机可以应用所谓的核函数有效地进行非线性分类，隐式将其输入映射到高维特征空间。SVM分类器的学习需要构建一个从简单到复杂的模型：线性可分支持向量机、线性支持向量机和非线性支持向量机。
+\subsection{支持向量机的原理}
+\label{subsec:svmyuanli}
+首先在n维空间中找到一个超平面，可以将空间中的点进行分类~\cite{boser1992training}。通常情况下，某个点离超平面的距离远或者近可以视为分类预测的确信或准确程度。SVM分类器的目的就是要将这个间隔距离最大化。在虚线上的点被称做支持向量。如图~\ref{fig:bowpingmian}所示。
+\begin{figure}[H] % use float package if you want it here
+  \centering
+  \includegraphics[height=7cm]{zuida}
+  \caption{最优超平面\cite{cortes1995support}}
+  \label{fig:bowpingmian}
+\end{figure}
+但在实际研究中，在二维平面中会常常遇到线性不可分的情况，面对这种问题通常采取的做法是把样例的特征映射到高维空间中，在高维空间就可以找到一个平面使其分类。如图~\ref{fig:pingmian}所示。
+\begin{figure}[H] % use float package if you want it here
+  \centering
+  \includegraphics[height=6cm]{chao}
+  \caption{高维最优超平面}
+  \label{fig:pingmian}
+\end{figure}
+然而线性不可分的情况映射到高维空间时，可能会导致维度达到极高的程度，这种情况会使计算复杂。这时就需要用到核函数，它的作用尽管是可以将特征进行从低维到高维的转换，但是核函数的优势是它先在低维空间进行计算，再转换到高维空间进行分类，这就回避了直接在高维空间中进行冗长的计算的问题。具体的核函数内容下文将介绍。最后，应用松弛变量进行数据噪音的处理。
+
+SVM分类器的优势是它可以解释为凸优化问题，所以可以使用已知的有效算法发现目标函数的全局最小值。而其他分类方法都采用一种基于贪心学习的策略来搜索假设空间，这种方法一般只能获得局部最优解。
+\subsection{核函数}
+\label{subsec:kernel}
+当面对线性不可分的情况，SVM处理的方法就用到核函数~\cite{bergman1970kernel}。它不用将处于原空间中的样本投射到新的空间中而就可以在原空间中直接计算出内积。所以计算两个向量在隐式映射之后的空间中的内积的函数被叫做核函数。核函数的定义表达式为，原始特征内积是<$x,z$>，映射后为<$\phi(x)$,$\phi(y)$>，那么定义核函数（Kernel）为:
+\begin{equation}
+K(x,z) = (x^{T}z)^{2}
+\end{equation}
+这种方法避开了直接在高维空间中进行计算，但是得到的结果却是相同的。以下介绍几种核函数，主要介绍本文将要使用的两种核函数：
+
+线性核函数（Linear）：主要用于线性可分的情形。参数较少，速度较快，针对普通数据，分类结果比较理想。核的主要目的是解决“映射后空间中的问题”和“映射前空间中的问题”。公式如下：
+\begin{equation}
+K(x,y) = < X,Y > 
+\end{equation} 
+   
+径向基核函数（RBF）：主要用于线性不可分的情形。参数较多，分类效果与参数有很大关系。可以通过训练数据的反复检验来寻找适合的参数，但这是个比较耗费时间的过程。公式如下：
+\begin{equation}
+K(x,y) = exp(-y\parallel x-y\parallel)^{2}
+\end{equation}  
+
+多项式核函数：
+\begin{equation}
+K(x,y) = ((X,Y)+R)^{d} 
+\end{equation}
+
+高斯核函数：
+\begin{equation}
+K(x,y) = exp\big\{-\frac{||X-Y||^{2}}{2\sigma}\big\}
+\end{equation} 
+
+对于应该选择哪种类型的核函数，需要按照具体的实际问题去分析，由于有的数据是线性可分的，有的是线性不可分，所以应该测试不同核和不同参数。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
